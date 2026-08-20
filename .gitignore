@@ -1,0 +1,36 @@
+# R / RStudio
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# renv
+
+## Local package library
+renv/library/
+
+## Local renv sandbox
+renv/sandbox/
+
+## Local renv staging directory
+renv/staging/
+
+## Keep the files required to reproduce the environment
+!renv/activate.R
+!renv.lock
+!.Rprofile
+
+# Operating system files
+
+## macOS
+.DS_Store
+._*
+
+## Windows
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*~
