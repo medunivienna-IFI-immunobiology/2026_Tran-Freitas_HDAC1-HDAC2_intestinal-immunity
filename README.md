@@ -33,7 +33,7 @@ Start by using `renv::restore()` to download necessary libraries used in this pr
 
 ## Data
 <p align="justify">
-Raw and processed data are available in the GEO database under the accession number GSE63473. 
+Raw and processed data are available in the GEO database under the accession number GSE311160.
 Raw sequencing output was processed to count-feature-barcode matrices as described in the methods section of the publication. Here only the subsequently used R scripts are described and made available. They are split in logically connected units to make versatile usage as easy as possible.
 </p>
 
