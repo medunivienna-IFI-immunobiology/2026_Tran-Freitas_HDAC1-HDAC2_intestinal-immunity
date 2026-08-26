@@ -40,9 +40,9 @@ Raw sequencing output was processed to count-feature-barcode matrices as describ
 ## Repository structure
 This repository is organised in the following structure:
 
-2026_Tran-Freitas_HDAC1-HDAC2_intestinal-immunity/
-Data/
-Scripts/
+Data/  
+
+Scripts/  
 
 ## Figure Reproducibility
 This repository reproduces the figures and analyses presented in the paper using the original Seurat objects generated during the original analysis (paper snapshot).
