@@ -1,12 +1,13 @@
-# Data and results folders
+# Data and results
 ## except the additional metadata
 Data/*
 !Data/Processed/
 Data/Processed/*
 !Data/Processed/Additional_metadata/
 !Data/Processed/Additional_metadata/**
-
 Results/
+Scripts/**/*.html
+Scripts/**/*_files/
 
 # R / RStudio
 .Rhistory
