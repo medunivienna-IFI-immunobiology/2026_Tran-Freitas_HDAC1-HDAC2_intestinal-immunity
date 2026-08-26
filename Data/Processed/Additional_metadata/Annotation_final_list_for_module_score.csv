@@ -1,0 +1,216 @@
+Tfh,Cxcl13
+Tfh, Icos
+Tfh, Maf
+Tfh, Pdcd1
+Tfh, Cd40lg
+Tfh, Ccr5
+Tfh, Cd3e
+Tfh, Il21
+Tfh, Il21r
+Tfh, Tnfsf4
+Tfh, Pdcd1
+Tfh, Slamf1
+Tfh, Stat3
+Tfh, Bcl6
+Tfh, Cd4
+Tfh, Cd40lg
+Tfh, Cd84
+Tfh, Cxcr5
+Tfh, Il6ra
+Tfh, Slamf1
+Tfh, Tnfsf4
+Tfh,Izumo1r
+Tfh,Cd200
+Tfh,Tcf7
+Th1,Ifng
+Th1, Il12rb2
+Th1, Stat4
+Th1, Cd3e
+Th1, Tnfrsf8
+Th1, Cd4
+Th1, Cxcr3
+Th1, Il12rb1
+Th1, Il18
+Th1, Il2
+Th1, Stat1
+Th1, Tbx21
+Th1, Ccr1
+Th1, Ccr5
+Th1, Csf2
+Th1, Dpp4
+Th1, Havcr2
+Th1, Ifna1
+Th1, Ifngr1
+Th1, Klrd1
+Th1, Tnf
+Th1, Tnfsf11
+Th1,Fasl
+Th1,Il12rb1
+Th1,Il12rb2
+Th2,Cd4
+Th2, Ccr6
+Th2, Gata3
+Th2, Ccr4
+Th2, Cd3e
+Th2, Tnfrsf8
+Th2, Il2
+Th2, Il4
+Th2, Ccr3
+Th2, Ccr7
+Th2, Ccr8
+Th2, Csf2
+Th2, Cxcr4
+Th2, Havcr1
+Th2, Icos
+Th2, Il10
+Th2, Il13
+Th2, Il1r1
+Th2, Il5
+Th2, Il6
+Th2, Ptgdr2
+Th2,Areg
+Th2,Maf
+Th2,Il17rb
+Th17,Ccr6
+Th17, Cd3e
+Th17, Cd4
+Th17, Klrb1c
+Th17, IL1R
+Th17, Il23r
+Th17, Stat3
+Th17, Ccr4
+Th17, Cd38
+Th17, Il17a
+Th17, Il17f
+Th17, Il1r1
+Th17, Il22
+Th17, Klrbl
+Th17,Tmem176a
+Treg,Ccr4
+Treg, Cd3e
+Treg, Cd4
+Treg, Cngb1
+Treg, Ctla4
+Treg, Entpd1
+Treg, Foxo1
+Treg, Foxo3
+Treg, Foxp3
+Treg, Ikzf2
+Treg, Il10
+Treg, Il12a
+Treg, Il2ra
+Treg, Il7r
+Treg, Isg20
+Treg, Itgae
+Treg, Lag3
+Treg, Lrrc32
+Treg, Nt5e
+Treg, Sell
+Treg, Smad2
+Treg, Smad3
+Treg, Smad4
+Treg, Stat5a
+Treg, Stat5b
+Treg, Tcf7
+Treg, Tnfrsf18
+Treg, Tnfrsf4
+CTL,Ccl3
+CTL, Ccl4
+CTL, Cd2
+CTL, Cd3d
+CTL, Cd4
+CTL, Cd8a
+CTL, Cst7
+CTL, Gnly
+CTL, Gzma
+CTL, Gzmb
+CTL, Gzmh
+CTL, Gzmm
+CTL, Ifng
+CTL, Nkg7
+CTL, Pfn1
+CTL, Prf1
+Tnaive,Ccr7
+Tnaive,Igfbp4
+Tnaive,Tpt1
+Tnaive,Gm42418
+Tnaive,Rpl5
+Tnaive,Rpl30
+Tnaive,Rgcc
+Tnaive,mt-Nd2
+Tnaive,Rflnb
+Tnaive,Fau
+Tnaive,Arl4c
+Tnaive,Lef1
+Tnaive,Rpl13a
+Tnaive,Rpl34
+Tnaive,Chd3
+Tnaive,Rpl14
+Tnaive,Foxp1
+Tnaive,Ccnd2
+Tnaive,Dtx1
+Tnaive,Rpl22l1
+Tnaive,Satb1
+Tnaive,Rapgef6
+Tnaive,Pik3ip1
+Tnaive,Klf3
+Tnaive,Rnf167
+Tnaive,Npc2
+Tnaive,Smad7
+Tnaive,Eif4a2
+Tnaive,Rpl31
+Tnaive,Ddx5
+Tnaive,Fam189b
+Tnaive,Klk8
+Tnaive,Peli1
+Tnaive,Fam78a
+Tnaive,Ablim1
+Tnaive,Rps27rt
+Tnaive,4930523C07Rik
+Tnaive,Ssh2
+Tnaive,Dgka
+Tnaive,AY036118
+Tnaive,Snhg12
+Tnaive,Eef1g
+Tnaive,Cox7a2l
+Tnaive,Txk
+Tprol,Cdk4
+Tprol,Top2a
+Tprol,Mki67
+Tprol,Cit
+Tprol,Kif4
+Tprol,Cbfb
+Tprol,Cox5a
+Tprol,Aurkb
+Tprol,Brca1
+Tprol,Brca2
+Tprol,Ccna2
+Tprol,Cdc25c
+Tprol,Cdc45
+Tprol,Cdca5
+Tprol,Cdca8
+Tprol,Cdk1
+Tprol,E2f1
+Tprol,E2f2
+Tprol,Foxm1
+Tprol,Pcna
+Tprol,Plk1
+Tprol,Rad51
+Tprol,Rpa2
+Tprol,Rrm2
+Trm,Cxcr6
+Trm,Itga1
+Trm,Itgae
+Trm,Cd8a
+Trm,Cd69
+Trm,Il2rb
+Trm,Runx2
+Trm,Nkg7
+Trm,Ifng
+Tem,Cd69
+Tem,Klrb1
+Tem,Il7r
+Tem,Nkg7
+Tem,Cx3cr1
+Tem,Tbx21
+Tem,Crem
