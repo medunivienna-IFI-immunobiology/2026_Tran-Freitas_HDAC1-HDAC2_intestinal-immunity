@@ -1,0 +1,85 @@
+# Figures cross-reference
+
+Figure and original code reference list for the scRNA-seq analysis, when applicable, are found as follows:
+
+
+# Main Figures:
+
+## Figure 3
+
+- Figure 3a: UMAP visualization of integrated intestinal T cells from SI-IEL, SI-LPL, and colon.
+  Code: 04_Intestinal_scRNAseq_overview.Rmd
+
+- Figure 3b: UMAP visualization and cluster annotation of SI-IEL T cells.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+- Figure 3c: Heatmap of representative marker genes for SI-IEL clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+- Figure 3d: CITE-seq feature plots showing CD4, CD8α, and CD8β expression across SI-IEL clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+- Figure 3e: CITE-seq protein abundance and marker gene expression across SI-IEL clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+- Figure 3f: Cluster abundance comparison between WT and HDAC1cKO-HDAC2HET SI-IEL T cells.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+
+## Figure 4
+
+- Figure 4a: Runx3 expression across SI-IEL clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+- Figure 4b: Heatmap of transcription factor activity inference across SI-IEL clusters.
+  Code: 07_Intestinal_scRNAseq_TF_activity.Rmd
+
+- Figure 4c: Zbtb7b transcription factor activity in SI-IEL clusters.
+  Code: 07_Intestinal_scRNAseq_TF_activity.Rmd
+
+- Figure 4d: GSEA of the CD4 CTL-specific gene signature in SI-IEL CD4+ T cells.
+  Code: 08_Intestinal_scRNAseq_CD4_reclustering.Rmd
+
+- Figure 4e: GSEA of the CD4 CTL-specific gene signature in SI-IEL cluster 3.
+  Code: 08_Intestinal_scRNAseq_CD4_reclustering.Rmd
+
+- Figure 4f: GSEA of the CD4 CTL-specific gene signature in SI-LPL CD4+ T cells.
+  Code: 08_Intestinal_scRNAseq_CD4_reclustering.Rmd
+
+- Figure 4g: GSEA of the CD4 CTL-specific gene signature in colonic CD4+ T cells.
+  Code: 08_Intestinal_scRNAseq_CD4_reclustering.Rmd
+
+
+# Supplementary Figures:
+
+## Supplementary Figure 2
+
+- Supplementary Figure 2: Feature plots showing module scores used for annotation of SI-IEL T-cell clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+
+
+## Supplementary Figure 3
+
+- Supplementary Figure 3a: UMAP visualization and annotation of SI-LPL T-cell clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "SI-LPL"
+
+- Supplementary Figure 3b: Heatmap of the top 20 representative genes for SI-LPL clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "SI-LPL"
+
+- Supplementary Figure 3c: Cluster abundance comparison between WT and HDAC1cKO-HDAC2HET SI-LPL T cells.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "SI-LPL"
+
+- Supplementary Figure 3d: UMAP visualization and annotation of colonic T-cell clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "colon"
+
+- Supplementary Figure 3e: Heatmap of the top 20 representative genes for colonic clusters.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "colon"
+
+- Supplementary Figure 3f: Cluster abundance comparison between WT and HDAC1cKO-HDAC2HET colonic T cells.
+  Code: 06_Intestinal_scRNAseq_ModuleScores_MarkerGenes.Rmd
+  Parameter: TISSUE = "colon"
