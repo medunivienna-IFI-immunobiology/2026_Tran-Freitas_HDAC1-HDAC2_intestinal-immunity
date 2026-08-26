@@ -1,0 +1,134 @@
+---
+title: "HDAC1 and HDAC2 Intestinal Immunity - scRNAseq T-cell identity and filtering"
+author: "Aruana Hansel Fröse, Moritz Madern, Phuc Tran & Monika Waldherr"
+date: '`r format(Sys.Date())`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+
+---
+
+# Cell identity of scRNAseq of mouse intestinal CD4+ and CD8+ T cells
+
+Here we will go through an extra quality control step where we check for cell identity. We want to keep only relevant cells - T cells and NK cells. For that we will use SingleR prediction of cell types.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+```{r libraries, message=FALSE,warning=FALSE}
+library(here)
+library(tidyverse)
+library(patchwork)
+library(Seurat)
+library(SingleR)
+library(celldex)
+```
+
+## Dir
+```{r parameters}
+dir_processed <- here("Data", "Processed", "01_QualityControl")
+dir_output <- here("Data", "Processed", "02_TcellFiltering")
+
+dirs <- c(dir_processed, dir_output)
+lapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
+```
+
+## Load data
+```{r}
+input_file <- file.path(dir_processed, "01_Intestinal_scRNAseq_postQC.rds")
+mergedSeurat <- LoadSeuratRds(input_file)
+
+# overview
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 12314 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: counts.Experiment1.1.1, counts.Experiment2.2.2
+#  2 other assays present: HTO, CITE
+```
+
+## Cell type SingleR
+
+Predict the cell types with SingleR reference and later filter the unexpected cell types.
+
+```{r}
+## Load reference dataset, see https://bioconductor.org/packages/release/bioc/vignettes/SingleR/inst/doc/SingleR.html
+mouseRef <- celldex::MouseRNAseqData() 
+
+## Subset for each individual experiment
+Experiment1 <- subset(mergedSeurat, subset = Experiment == "Experiment1")
+Experiment2 <- subset(mergedSeurat, subset = Experiment == "Experiment2")
+
+## Predict cell type via singleR
+pred.cells_1 <- SingleR(test = Experiment1@assays$RNA$data,
+                        ref = mouseRef,
+                        assay.type.test = "RNA",
+                        assay.type.ref = "logcounts",
+                        labels = mouseRef$label.main)
+
+Experiment1$pred.cellType <- pred.cells_1$pruned.labels
+
+pred.cells_2 <- SingleR(test = Experiment2@assays$RNA$data, 
+                        ref = mouseRef, 
+                        assay.type.test = "RNA",
+                        assay.type.ref = "logcounts",
+                        labels = mouseRef$label.main)
+
+Experiment2$pred.cellType <- pred.cells_2$pruned.labels
+
+## Merge the replicate experiments
+mergedSeurat <- merge(x=Experiment1,
+                      y=Experiment2)
+# join layers
+mergedSeurat[["RNA"]] <- JoinLayers(mergedSeurat[["RNA"]])
+
+Idents(mergedSeurat) <- mergedSeurat@meta.data$pred.cellType
+
+# overview
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 12314 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: data, counts
+#  2 other assays present: HTO, CITE
+
+```
+
+## Filter for only T cells and NK cells
+
+```{r}
+# check out cell types
+table(mergedSeurat$pred.cellType)
+# B cells Erythrocytes  Hepatocytes  Macrophages    Microglia    Monocytes     NK cells 
+#           30            1            3            4            2            1         3256 
+#      T cells 
+#         9010 
+
+mergedSeurat <- subset(mergedSeurat,
+                       subset = pred.cellType == "T cells" | pred.cellType == "NK cells")
+# check
+table(mergedSeurat$pred.cellType)
+# NK cells  T cells 
+#     3256     9010 
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 12266 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: data, counts
+#  2 other assays present: HTO, CITE
+
+## 48 irrelevant cells removed
+```
+
+## Save obj
+```{r}
+filename <- file.path(dir_output, "02_Intestinal_scRNAseq_Tcells.rds")
+# filename
+
+saveRDS(mergedSeurat, file = filename)
+```
+

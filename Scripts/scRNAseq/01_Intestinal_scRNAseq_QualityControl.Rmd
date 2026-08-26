@@ -1,0 +1,555 @@
+---
+title: "HDAC1 and HDAC2 Intestinal Immunity - scRNAseq Quality control"
+author: "Aruana Hansel Fröse, Moritz Madern, Phuc Tran & Monika Waldherr"
+date: '`r format(Sys.Date())`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+---
+
+# Quality control of scRNAseq of mouse intestinal CD4+ and CD8+ T cells
+
+Here we will do the initial data quality control and demultiplexing of scRNAseq data
+
+- Input: Raw data  
+
+- Approach: Merge Experiments 1 and 2; Filter nFeature, NCount and MT %; Demultiplexing of Hashtag Oligos and CITEseq Oligcos; Filter doublets;  
+
+- Output: QC Plots; Filtered Obj
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE)
+
+```
+
+## Libraries
+```{r libraries, message=FALSE, warning=FALSE}
+library(here)
+library(tidyverse)
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+```
+
+## Dir
+```{r parameters}
+# set up input data dir
+dir_raw <- here("Data", "Raw")
+dir_processed <- here("Data", "Processed", "01_QualityControl")
+
+# create if doesn't exist
+dirs <- c(dir_processed)
+
+lapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
+
+```
+
+## Read data and create Seurat objects
+
+Steps in this loop:  
+
+1. Read in datasets from Experiment 1 and Experiment 2
+
+2. Create Seurat object for each
+
+3. Add the hashtag oligos (HTO) data to the seurat object as an extra assay
+
+4. Add the hashtag CITE-seq data to the seurat object as an extra assay
+
+5. Create new mitochondrial percent and fraction to metadata
+
+6. Get unique barcodes per experiment
+
+7. Assign Seurat objects
+
+8. Merge both replicates into one Seurat obj
+
+9. Clean env
+
+```{r read in data, warning=FALSE}
+
+for (file in list.files(dir_raw)){ # For each experiment 1 and 2:
+  
+  # 1. Read in data and create Seurat object with counts  
+  writeLines(paste("\nName:", file))
+  
+  seurat_data <- Read10X(data.dir = file.path(dir_raw, file))
+  
+  # 2. Create the Seurat object
+  seurat_obj <- CreateSeuratObject(counts = seurat_data$`Gene Expression`, 
+                                   min.features = 100,
+                                   min.cells = 3, 
+                                   project = file) 
+  
+  # 3. Add hashtag oligo data to object as extra assay
+  seurat_obj[["HTO"]] <- CreateAssayObject(seurat_data$`Multiplexing Capture`[,colnames(seurat_obj)],
+                                           min.cells = 1000) # already selects only those cells that passed the min.features threshold defined above
+  writeLines(paste("Used hashtag oligos:"))
+  print(rownames(seurat_obj@assays$HTO))
+  
+  # 4. Add hashtag CITE-seq data to object as extra assay
+  seurat_obj[["CITE"]] <- CreateAssayObject(seurat_data$`Antibody Capture`[,colnames(seurat_obj)],
+                                            min.cells = 1000) # selects only cells that passed min.features threshold defined before
+  writeLines(paste("Used CITE-seq antibody targets:"))
+  print(rownames(seurat_obj@assays$CITE))
+  
+  # 5. Add mitochondrial percent and fractionto object's metadata
+  seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, pattern = "^mt-")
+  seurat_obj[["fraction.mt"]] <- seurat_obj[["percent.mt"]]/100
+  
+  # 6. Prints number of unique cellular barcodes per experiment
+  writeLines(paste("Information on Seurat object: "))
+  print(seurat_obj)
+  
+  # 7. Assign Seurat object to folder name and remove old files
+  assign(file, seurat_obj)
+  rm(list=c("seurat_data", "seurat_obj"))
+  gc() # clean environment
+}
+
+
+# 8. Merge the (biological) replicate experiments
+mergedSeurat <- merge(x=Experiment1,
+                      y=Experiment2,
+                      add.cell.ids = c("Exp1", "Exp2")) #adds exp ids to barcodes
+
+# add experiment information to metadata
+mergedSeurat$Experiment <- mergedSeurat$orig.ident
+
+# View(mergedSeurat@meta.data)
+
+# 9. Remove unneeded data
+rm(list=c("Experiment1", "Experiment2", "file"))
+```
+
+## Object overview
+
+```{r object overview}
+## Print the object
+writeLines("Merged Seurat object:")
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 80292 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: counts.Experiment1, counts.Experiment2
+#  2 other assays present: HTO, CITE
+
+
+## Show summary 
+writeLines("Number of droplets per experiment:")
+mergedSeurat$Experiment %>% table()
+# Experiment1 Experiment2 
+#       25690       54602 
+
+
+## Plot QC metrics
+VlnPlot(mergedSeurat,
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+        ncol = 3,
+        pt.size = 0.01,
+        alpha=0)
+
+## Calculate median mitochondrial count percent
+tapply(mergedSeurat$percent.mt, INDEX=mergedSeurat$Experiment, FUN="median")
+# Experiment1 Experiment2 
+#    3.115706    1.428571 
+
+```
+
+## Plots overview
+```{r plots overview}
+## Plot number of features per experiment
+# how many genes detected
+xlim_upper<- quantile(mergedSeurat@meta.data$nFeature_RNA, probs=0.9)
+
+ggplot(mergedSeurat@meta.data) +
+  geom_density(aes(x=nFeature_RNA, col=orig.ident)) + xlim(0, xlim_upper)
+
+mergedSeurat@assays$RNA$counts.Experiment1 %>% colSums() %>% summary()
+ # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ #  102.0   161.0   233.0   512.3   440.0 24700.0 
+mergedSeurat@assays$RNA$counts.Experiment2 %>% colSums() %>% summary()
+ # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ #  105.0   138.0   162.0   974.6   513.0 34637.0 
+
+
+## Plot rank vs nr Genes
+# x: rank of each cell by y: total RNA counts
+# identify true cells vs background noise (knee drop in plot)
+mergedSeurat@meta.data$Rank_nCount_RNA <-  rev(1:length(mergedSeurat@meta.data$orig.ident))[rank(mergedSeurat@meta.data$nCount_RNA)]
+
+ggplot(mergedSeurat@meta.data) +
+  geom_point(aes(x=Rank_nCount_RNA, y=log10(nCount_RNA)), color="blue")
+
+## Plot number of counts vs number of features, color by fraction of mitochondrial read counts
+# high mito count in the bottom end of plot, specially in exp 2
+ggplot(mergedSeurat@meta.data) +
+  geom_point(aes(y=nFeature_RNA, x=nCount_RNA, col=fraction.mt)) +
+  scale_color_continuous(type="viridis") + 
+  facet_wrap(~orig.ident) +
+  theme_bw()
+
+```
+
+## Filtering 
+
+Filtering based on number of features and mito content
+
+```{r filtering}
+## Perform filtering
+mergedSeurat<- subset(mergedSeurat,
+                      subset = nFeature_RNA > 350 & nFeature_RNA < 4000 
+                      & nCount_RNA > 500 
+                      & percent.mt < 5)
+
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 15536 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: counts.Experiment1, counts.Experiment2
+#  2 other assays present: HTO, CITE
+
+mergedSeurat$orig.ident %>% table()
+# Experiment1 Experiment2 
+#        4744       10792 
+
+
+## Plot QC metrics after filtering
+VlnPlot(mergedSeurat,
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+        ncol = 3,
+        pt.size = 0.01,
+        alpha=0)
+```
+
+## Demultiplex Hashtag oligos
+
+Hashtag Oligos (HTOs): short DNA-barcoded antibodies, for sample multiplexing. Here we will demultiplex it by HTOs, to separate samples within each experiment. 
+
+```{r demultiplex hashtag oligos}
+
+## Subset for each individual experiment
+Experiment1 <- subset(mergedSeurat, subset = Experiment == "Experiment1")
+Experiment2 <- subset(mergedSeurat, subset = Experiment == "Experiment2")
+
+
+## Normalize within each Experiment
+Experiment1 <- NormalizeData(Experiment1, assay = "HTO", normalization.method = "CLR")
+Experiment2 <- NormalizeData(Experiment2, assay = "HTO", normalization.method = "CLR")
+
+
+## Demultiplex using HTODemux function
+Experiment1 <- HTODemux(Experiment1, assay = "HTO", positive.quantile = 0.99)
+# Cutoff for WT-SI-IEL : 17 reads
+# Cutoff for KO-SI-IEL : 63 reads
+# Cutoff for WT-SI-LPL : 6 reads
+# Cutoff for KO-SI-LPL : 10 reads
+# Cutoff for WT-colon : 7 reads
+# Cutoff for KO-colon : 4 reads
+
+Experiment2 <- HTODemux(Experiment2, assay = "HTO", positive.quantile = 0.99)
+# Cutoff for WT-SI-IEL : 285 reads
+# Cutoff for KO-SI-IEL : 13 reads
+# Cutoff for WT-SI-LPL : 4 reads
+# Cutoff for KO-SI-LPL : 7 reads
+# Cutoff for WT-colon : 7 reads
+# Cutoff for KO-colon : 4 reads
+
+
+## Merge the (biological) replicate experiments again
+# don't add exp1_ info again to avoid repetition. It merges by cell names.
+# with HTO info in metadata
+mergedSeurat <- merge(x=Experiment1,
+                      y=Experiment2)
+
+Idents(mergedSeurat) <- "HTO_maxID"
+
+## HTO cols present
+colnames(mergedSeurat@meta.data)
+# [1] "orig.ident"                "nCount_RNA"               
+#  [3] "nFeature_RNA"              "nCount_HTO"               
+#  [5] "nFeature_HTO"              "nCount_CITE"              
+#  [7] "nFeature_CITE"             "percent.mt"               
+#  [9] "fraction.mt"               "Experiment"               
+# [11] "Rank_nCount_RNA"           "HTO_maxID"                
+# [13] "HTO_secondID"              "HTO_margin"               
+# [15] "HTO_classification"        "HTO_classification.global"
+# [17] "hash.ID"
+```
+
+```{r}
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 15536 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: counts.Experiment1.1, counts.Experiment2.2
+#  2 other assays present: HTO, CITE
+```
+
+
+### Demultiplex plots
+Exploring the demultiplexing results with some plots
+
+```{r demultiplex plots}
+
+## Explore demultiplexing results
+table(mergedSeurat$HTO_classification.global)
+# some doublets and negatives were identified
+# Doublet Negative  Singlet 
+#     2055     1167    12314 
+
+# ridgePlot
+# check whether the demultiplex results agree with sample classification
+RidgePlot(mergedSeurat,
+          assay = "HTO",
+          features = rownames(mergedSeurat[["HTO"]]),
+          ncol = 2)
+
+# heatmap
+
+HTOHeatmap(mergedSeurat,
+           assay = "HTO",
+           ncells = 16000) #all cells <16k
+```
+
+```{r hto dimplots}
+## Check out results in dimension reduction
+mergedSeurat_HTO <- mergedSeurat
+
+# subset to positive (singlet, doublet) HTO cells
+mergedSeurat_HTO <- subset(mergedSeurat_HTO,
+                           subset = HTO_classification.global != "Negative")
+
+# change to HTO assay
+DefaultAssay(mergedSeurat_HTO) <- "HTO"
+
+# scale data
+mergedSeurat_HTO <- ScaleData(mergedSeurat_HTO,
+                              features = rownames(mergedSeurat_HTO),
+                              verbose = FALSE)
+
+# run PCA
+mergedSeurat_HTO <- RunPCA(mergedSeurat_HTO, 
+                           features = rownames(mergedSeurat_HTO),
+                           approx = FALSE)
+
+# run TSNE on PCs
+mergedSeurat_HTO <- RunTSNE(mergedSeurat_HTO,
+                            dims = 1:6, 
+                            perplexity = 80,
+                            check_duplicates=FALSE)
+
+# plot 
+## by singlet or droplets or negative 
+DimPlot(mergedSeurat_HTO,
+        group.by = "HTO_classification.global", 
+        split.by="Experiment")
+
+# by specific HTO identity (tissues here)
+p <- DimPlot(mergedSeurat_HTO, 
+        group.by = "HTO_classification", 
+        split.by="Experiment",
+        label = TRUE)
+
+p + NoLegend()
+```
+
+  
+There are some doublet clusters in both experiments, but the big groups are singlets nonetheless. We will filter for doublets in the next code chunks.
+
+```{r, include=FALSE}
+## Remove unneeded objects
+rm(list=c("mergedSeurat_HTO", "Experiment1", "Experiment2", "xlim_upper"))
+gc()
+```
+
+## CITE-seq antibody tags
+Normalize the CITE-seq antibody-derived tags  in each experiment separately.
+
+```{r CITEseq antibody tags}
+## Subset for each individual experiment
+Experiment1 <- subset(mergedSeurat, subset = Experiment == "Experiment1")
+Experiment2 <- subset(mergedSeurat, subset = Experiment == "Experiment2")
+
+
+## Normalize within each Experiment
+Experiment1 <- NormalizeData(Experiment1, assay = "CITE", 
+                             normalization.method = "CLR")
+
+Experiment2 <- NormalizeData(Experiment2, assay = "CITE", 
+                             normalization.method = "CLR")
+
+## Merge the (biological) replicate experiments
+mergedSeurat <- merge(x=Experiment1,
+                      y=Experiment2) # don't add again cell id to avoid repetition
+
+```
+
+## Filter HTO doublets
+Keep only singlets, filtering out the doublets and the negatives.
+
+
+```{r}
+## Filter for singlets
+writeLines("Table before filtering:")
+mergedSeurat$HTO_classification.global %>% table()
+ # Doublet Negative  Singlet 
+ #    2055     1167    12314 
+
+# keep only singlet
+mergedSeurat <- subset(mergedSeurat,
+                       subset = HTO_classification.global == "Singlet")
+
+writeLines("Table after filtering")
+mergedSeurat$HTO_classification.global %>% table()
+# Singlet 
+#   12314 
+
+```
+
+
+
+***
+
+# Cell Cycle
+
+## Subset and normalize experiments
+```{r}
+
+## Subset for each individual experiment
+Experiment1 <- subset(mergedSeurat, subset = Experiment == "Experiment1")
+Experiment2 <- subset(mergedSeurat, subset = Experiment == "Experiment2")
+
+
+## Normalize within each Experiment
+Experiment1 <- NormalizeData(Experiment1, assay = "RNA", normalization.method = "LogNormalize")
+Experiment2 <- NormalizeData(Experiment2, assay = "RNA", normalization.method = "LogNormalize")
+```
+
+## Cell cycle scores
+
+### Human to mouse
+```{r}
+# Load Seurat’s built-in lists
+s.genes <- Seurat::cc.genes.updated.2019$s.genes
+g2m.genes <- Seurat::cc.genes.updated.2019$g2m.genes
+
+# Convert to lowercase to match your data
+s.genes <- tolower(s.genes)
+g2m.genes <- tolower(g2m.genes)
+
+# function to capitalize only first letter - mm 
+capitalize_first <- function(x) {
+  paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
+}
+
+s.genes <- capitalize_first(s.genes)
+g2m.genes <- capitalize_first(g2m.genes)
+
+g2m.genes
+s.genes
+```
+
+### Calculate scores
+
+```{r}
+## Calculate cellcycle scores
+Experiment1 <- CellCycleScoring(Experiment1,
+                                 g2m.features = g2m.genes,
+                                 s.features = s.genes)
+
+Experiment2 <- CellCycleScoring(Experiment2,
+                                 g2m.features = g2m.genes,
+                                 s.features = s.genes)
+
+## Merge the (biological) replicate experiments
+# with the cell cycle info
+mergedSeurat <- merge(x=Experiment1,
+                      y=Experiment2)
+
+mergedSeurat[["RNA"]] <- JoinLayers(mergedSeurat[["RNA"]])
+
+# overview
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 12314 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: data, counts
+#  2 other assays present: HTO, CITE
+
+# check metadata, new cols for cell cycle
+# View(mergedSeurat@meta.data)
+intersect(rownames(mergedSeurat), s.genes)
+intersect(rownames(mergedSeurat), g2m.genes)
+
+```
+
+
+### Plot cell cycle markers
+Should not be highly expressed
+
+```{r}
+Idents(mergedSeurat) <- mergedSeurat@meta.data$Phase
+
+# Visualize the distribution of cell cycle markers across
+RidgePlot(mergedSeurat, features = c("Pcna", "Top2a", "Mcm6", "Mki67"), ncol = 2)
+
+RidgePlot(mergedSeurat, features = c("S.Score", "G2M.Score"), ncol = 1)
+
+VlnPlot(mergedSeurat, features = c("S.Score", "G2M.Score"), pt.size = 0.1)
+
+ggplot(mergedSeurat@meta.data, aes(x = S.Score, y = G2M.Score, color = Phase)) +
+  geom_point(alpha = 0.4, size = 0.6) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  theme_bw()
+
+```
+
+
+```{r}
+table(mergedSeurat$Phase)
+cor(mergedSeurat$S.Score, mergedSeurat$G2M.Score)
+# 0.4 it's ok
+
+length(intersect(rownames(mergedSeurat), s.genes))
+length(intersect(rownames(mergedSeurat), g2m.genes))
+
+```
+
+### PCA of cell cycle scores
+
+Cell cycle phases are mixed and overlapping across the PCs, without clear separation of the phases. This shows that cell cycle is not driving cells expression.
+
+```{r}
+mergedSeurat2 <- NormalizeData(mergedSeurat, verbose = FALSE)
+
+mergedSeurat2 <- FindVariableFeatures(mergedSeurat2, nfeatures = 3000, verbose = FALSE)
+
+# scale for all features
+mergedSeurat2 <- ScaleData(mergedSeurat2, verbose = FALSE)
+
+# PCA on variable genes - to check whether cell cycle genes are influencing or not
+mergedSeurat2 <- RunPCA(mergedSeurat2, npcs = 50, verbose = FALSE)
+
+# plot
+DimPlot(mergedSeurat2, reduction = "pca", group.by = "Phase", label = TRUE)
+
+# clean
+rm(mergedSeurat2)
+gc()
+```
+
+
+# Save object
+```{r}
+## Save Seurat Object
+filename <- file.path(dir_processed, "01_Intestinal_scRNAseq_postQC.rds")
+filename
+
+saveRDS(mergedSeurat, file = filename)
+```
+

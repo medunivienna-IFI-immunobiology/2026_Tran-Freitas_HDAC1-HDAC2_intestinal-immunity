@@ -1,0 +1,428 @@
+---
+title: "HDAC1 and HDAC2 Intestinal Immunity - scRNAseq Integration"
+author: "Aruana Hansel Fröse, Moritz Madern, Phuc Tran & Monika Waldherr"
+date: '`r format(Sys.Date())`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+---
+
+# Biological replicates Integration
+
+Here we will Integrate biological replicates using SCTransform-based integration, followed by dimensionality reduction and clustering. 
+To check integrated data quality, we will perform Cell cycle scoring again, and Cell type predictions with SingleR Immgen reference as well.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+
+set.seed(42)
+```
+
+
+## Libraries
+```{r message=FALSE, warning=FALSE}
+library(here)
+library(tidyverse)
+library(Seurat)
+library(patchwork)
+library(celldex)
+library(SingleR)
+
+```
+
+## Dir
+```{r parameters}
+dir_processed <- here("Data", "Processed", "02_TcellFiltering")
+dir_integ <- here("Data", "Processed", "03_Integration")
+dir_res <- here("Results", "03_Integration", "Plots")
+
+dirs <- c(dir_processed, dir_integ, dir_res)
+
+lapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
+
+```
+
+## Data
+```{r}
+input_file <- file.path(dir_processed, "02_Intestinal_scRNAseq_Tcells.rds")
+# input_file
+
+# load it
+mergedSeurat <- LoadSeuratRds(input_file)
+
+# overview
+mergedSeurat
+# An object of class Seurat 
+# 20938 features across 12266 samples within 3 assays 
+# Active assay: RNA (20929 features, 0 variable features)
+#  2 layers present: data, counts
+#  2 other assays present: HTO, CITE
+# View(mergedSeurat@meta.data)
+
+```
+
+# SCTransform integration
+
+## Subset experiments
+
+```{r warning=FALSE}
+IntegSeurat <- mergedSeurat
+
+## Subset for each individual experiment and perform SC transform
+Experiment1 <- subset(mergedSeurat, subset = Experiment == "Experiment1")
+Experiment2 <- subset(mergedSeurat, subset = Experiment == "Experiment2")
+
+Experiment1 <- SCTransform(Experiment1)
+Experiment2 <- SCTransform(Experiment2)
+
+Seurat_list <- list(Experiment1, Experiment2)
+
+```
+
+## Integrate features
+
+```{r message=TRUE, warning=FALSE}
+IntegFeatures <- SelectIntegrationFeatures(object.list = Seurat_list, nfeatures=3000)
+
+Seurat_list <- PrepSCTIntegration(object.list = Seurat_list,
+                                  anchor.features = IntegFeatures)
+
+IntegAnchors <- FindIntegrationAnchors(object.list = Seurat_list, 
+                                       normalization.method = "SCT",
+                                       anchor.features = IntegFeatures)
+
+IntegSeurat <- IntegrateData(anchorset = IntegAnchors,
+                             normalization.method = "SCT")
+
+```
+
+# Check integrated obj
+
+```{r}
+IntegSeurat
+# An object of class Seurat 
+# 41166 features across 12266 samples within 5 assays 
+# Active assay: integrated (3000 features, 3000 variable features)
+#  2 layers present: data, scale.data
+#  4 other assays present: RNA, HTO, CITE, SCT
+```
+
+
+## Plots before/after
+
+```{r message=FALSE, warning=FALSE}
+# pca before
+IntegSeurat <- RunPCA(IntegSeurat, assay="SCT", features = VariableFeatures(IntegSeurat))
+pca.bf <- DimPlot(IntegSeurat, reduction = "pca", group.by = c("Experiment")) + ggtitle("PCA before integration")
+
+# umap before
+IntegSeurat <- RunUMAP(IntegSeurat, dims=1:12)
+umap.bf <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("Experiment")) + ggtitle("UMAP before Integration")
+
+# pca after
+IntegSeurat <- RunPCA(IntegSeurat, assay="integrated", features = VariableFeatures(IntegSeurat))
+pca.af <- DimPlot(IntegSeurat, reduction = "pca", group.by = c("Experiment")) + ggtitle("PCA after integration")
+
+# umap after
+IntegSeurat <- RunUMAP(IntegSeurat, dims=1:12, min.dist = 0.2)
+umap.af <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("Experiment")) + ggtitle("UMAP after Integration")
+
+# clean
+rm(list=c("mergedSeurat", "Seurat_list", "IntegAnchors", "IntegFeatures"))
+
+# plots
+(pca.bf | pca.af) / (umap.bf | umap.af)
+
+```
+
+## UMAP per tissue
+
+```{r}
+# add new col with tissue info from HTO classification
+IntegSeurat$tissue <- IntegSeurat$HTO_classification %>%
+  sub(x=., pattern = "WT-|KO-", replacement = "")
+
+tissue <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("tissue")) + ggtitle("UMAP after Integration - HTO class")
+
+tissue
+```
+
+## Save UMAP 
+```{r}
+ggsave(file.path(dir_res, "IntestinalSeurat_integrated_UMAP_tissue.png"),
+       plot = tissue, device = "png", width = 10)
+```
+
+
+```{r}
+## Plot with HTO overlay
+check <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("HTO_classification")) + ggtitle("UMAP after Integration - HTO projection")
+
+check
+
+## Plot with singleR cell prediction overlay
+check <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("pred.cellType")) + ggtitle("UMAP after Integration - singleR MouseRNAData prediction ")
+
+check
+```
+
+
+## Elbowplot After  
+```{r}
+ElbowPlot(IntegSeurat, reduction="pca", ndims=50)
+
+```
+  
+  
+## Save  RDS
+```{r}
+filename <- file.path(dir_integ,"03-1_IntestinalSeurat_integrated.rds")
+filename
+
+saveRDS(IntegSeurat, file = filename)
+```
+
+
+
+***
+
+
+# SingleR ImmGen
+
+Check now in the integrated dataset how are the annotated cell types from the ImmGen ref data
+
+```{r}
+## Predict via singleR ImmGennData reference
+# main labels
+mouseRef <- celldex::ImmGenData()
+
+IntegSeurat[["RNA"]] <- JoinLayers(IntegSeurat[["RNA"]])
+
+pred.cells.main <- SingleR(test = IntegSeurat@assays$RNA$data,
+                           ref = mouseRef,
+                           assay.type.test = "RNA", 
+                           assay.type.ref = "logcounts", 
+                           labels = mouseRef$label.main)
+
+IntegSeurat$pred.cellType_ImmGen_label.main <- pred.cells.main$labels
+
+check <- DimPlot(IntegSeurat,
+                 reduction = "umap", 
+                 group.by = c("pred.cellType_ImmGen_label.main"),
+                 label = TRUE) + 
+  ggtitle("UMAP after Integration")
+
+check
+
+# how many cells from each group
+table(IntegSeurat@meta.data$pred.cellType_ImmGen_label.main)
+        #       DC Epithelial cells              ILC      Macrophages 
+        #        1                1             4061                1 
+        # NK cells              NKT          T cells              Tgd 
+        #       26             1094             5292             1790 
+
+
+## Predict via singleR ImmGennData reference
+# fine labels
+pred.cells.fine <- SingleR(test = IntegSeurat@assays$RNA$data,
+                           ref = mouseRef,
+                           assay.type.test = "RNA",
+                           assay.type.ref = "logcounts",
+                           labels = mouseRef$label.fine)
+
+IntegSeurat$pred.cellType_ImmGen_label.fine <- pred.cells.fine$labels
+
+check2 <- DimPlot(IntegSeurat, reduction = "umap",
+                 group.by = c("pred.cellType_ImmGen_label.fine"),
+                 label = FALSE) + ggtitle("UMAP after Integration") + NoLegend()
+
+check2
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# clean
+rm(list=c("mouseRef", "check", "pred.cells.main", "pred.cells.fine"))
+gc()
+
+
+```
+
+## Save RDS
+
+```{r}
+filename <- file.path(dir_integ, "03-2_IntestinalSeurat_integrated_ImmGen.rds")
+filename
+
+saveRDS(IntegSeurat, file = filename)
+```
+
+  
+# Cell cycle again  
+
+Analyse considering the cell labels and in the integrated dataset
+
+### Human to mouse
+```{r}
+# Load Seurat’s built-in lists
+s.genes <- Seurat::cc.genes.updated.2019$s.genes
+g2m.genes <- Seurat::cc.genes.updated.2019$g2m.genes
+
+# Convert to lowercase to match your data
+s.genes <- tolower(s.genes)
+g2m.genes <- tolower(g2m.genes)
+
+# function to capitalize only first letter - mm 
+capitalize_first <- function(x) {
+  paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
+}
+
+s.genes <- capitalize_first(s.genes)
+g2m.genes <- capitalize_first(g2m.genes)
+
+g2m.genes
+s.genes
+```
+
+### CellCycle scores
+
+```{r}
+## Calculate cellcycle scores
+IntegSeurat <- CellCycleScoring(IntegSeurat,
+                                 g2m.features = s.genes,
+                                 s.features = g2m.genes)
+IntegSeurat$S.Score %>% hist(main = "S Score")
+IntegSeurat$G2M.Score %>% hist(main = "G2M Score")
+IntegSeurat$Phase %>% table()
+
+```
+
+### Plots
+
+#### Scores per phase
+
+```{r}
+Idents(IntegSeurat) <- IntegSeurat@meta.data$Phase
+
+# Visualize the distribution of cell cycle markers across
+RidgePlot(IntegSeurat, features = c("Pcna", "Top2a", "Mcm6", "Mki67"), ncol = 2)
+# Warning: The following requested variables were not found: Pcna, Mcm6
+
+RidgePlot(IntegSeurat, features = c("S.Score", "G2M.Score"), ncol = 1)
+
+VlnPlot(IntegSeurat, features = c("S.Score", "G2M.Score"), pt.size = 0.1)
+# very simmilar to previous but cleaner and less outlier cells 
+
+ggplot(IntegSeurat@meta.data, aes(x = S.Score, y = G2M.Score, color = Phase)) +
+  geom_point(alpha = 0.4, size = 0.6) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  theme_bw()
+# also here less diagonal cells
+
+```
+```{r}
+table(IntegSeurat$Phase)
+cor(IntegSeurat$S.Score, IntegSeurat$G2M.Score)
+# 0.4 it's still the same, it's ok though
+
+length(intersect(rownames(IntegSeurat), s.genes))
+length(intersect(rownames(IntegSeurat), g2m.genes))
+# less intersection with cell cycle genes
+```
+
+#### Umap/PCA
+```{r}
+## Visualize cell cycle effects
+# pca integrated per phase
+IntegSeurat <- RunPCA(IntegSeurat, 
+                      assay="integrated",
+                      features = VariableFeatures(IntegSeurat))
+pca.cc <- DimPlot(IntegSeurat, reduction = "pca", group.by = c("Phase")) + ggtitle("PCA after Integration")
+
+# umap integrated per phase
+IntegSeurat <- RunUMAP(IntegSeurat,
+                       dims=1:12,
+                       min.dist = 0.2)
+umap.cc <- DimPlot(IntegSeurat, reduction = "umap", group.by = c("Phase")) + ggtitle("UMAP after Integration")
+
+
+# where are the high exp cc cells?
+feat <- FeaturePlot(object = IntegSeurat, features = "S.Score")
+FeaturePlot(object = IntegSeurat, features = "G2M.Score")
+
+# looks like in a specific T cell pop
+# Tgd (Gamma-delta T) cells
+umap.imm <- DimPlot(IntegSeurat,
+                 reduction = "umap", 
+                 group.by = c("pred.cellType_ImmGen_label.main"),
+                 label = TRUE) + 
+  ggtitle("UMAP after Integration")
+
+
+(pca.cc | feat ) / (umap.cc | umap.imm )
+
+umap.imm
+
+```
+
+
+## CITE-seq
+
+Check protein abundance from CITEseq prots in the integrated obj 
+
+```{r}
+## Change default assay to cite
+DefaultAssay(IntegSeurat) <- "CITE"
+
+
+## Plot feature plot for each CITE-seq protein
+for (i in rownames(IntegSeurat@assays$CITE$data)){
+  print(i)
+  p <- FeaturePlot(IntegSeurat, i, cols=c("lightgrey", "darkblue"), slot="data") + ggtitle(paste0("CITE-seq abundance: ", i))
+  print(p)
+}
+
+
+## Change default assay to "cite"integrated" again
+DefaultAssay(IntegSeurat) <- "integrated"
+```
+
+
+# Clustering
+
+```{r}
+## Calculate PCA again and perform clustering
+IntegSeurat <- RunPCA(IntegSeurat,
+                      assay="integrated",
+                      features = VariableFeatures(IntegSeurat))
+
+DimPlot(IntegSeurat,
+        reduction = "pca",
+        group.by = c("Experiment")) + ggtitle("PCA afterintegration")
+
+IntegSeurat <- FindNeighbors(IntegSeurat, dims = 1:12)
+
+IntegSeurat <- FindClusters(IntegSeurat, resolution = 0.5, verbose = FALSE)
+
+## Visualize Clustering Resuls
+DimPlot(IntegSeurat,
+        reduction = "umap",
+        group.by = c("seurat_clusters")) + ggtitle("UMAP: Clustering with res=0.5")
+```
+
+
+
+## Save 
+
+```{r}
+filename <- file.path(dir_integ, "03-3_IntestinalSeurat_integrated_clustered.rds")
+filename
+
+saveRDS(IntegSeurat, file = filename)
+```
+
