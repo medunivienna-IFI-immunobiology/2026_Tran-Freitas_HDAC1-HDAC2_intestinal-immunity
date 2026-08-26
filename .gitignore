@@ -1,8 +1,21 @@
+# Data and results folders
+## except the additional metadata
+Data/*
+!Data/Processed/
+Data/Processed/*
+!Data/Processed/Additional_metadata/
+!Data/Processed/Additional_metadata/**
+
+Results/
+
 # R / RStudio
 .Rhistory
 .RData
 .Ruserdata
 .Rproj.user/
+
+# Package logs
+omnipathr-log/
 
 # renv
 
